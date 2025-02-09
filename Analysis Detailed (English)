@@ -1,0 +1,411 @@
+
+
+## 1. Data Model and Primary Keys
+
+Before any querying, you first review your data model. You note the following possible primary keys (unique identifiers):
+
+- **ObservatieID** in the **zonnepanelen** table  
+- **NIS_Code** in the **NIS_Codes** table  
+- **PeriodeID** in the **periodes** table  
+- **Vermogensklasse** in the **Vermogensklassen** table  
+
+*Why it’s important:*  
+Identifying primary keys ensures that when you join tables or count unique records, you are using the correct columns to uniquely identify a record.
+
+---
+
+## 2. Counting Unique Categories
+
+### Counting Vermogensklassen  
+```sql
+SELECT COUNT(DISTINCT Vermogensklasse) AS aantal_vermogensklassen
+FROM Vermogensklassen;
+```
+- **Step-by-step:**
+  1. **COUNT(DISTINCT Vermogensklasse):** This counts only unique values in the `Vermogensklasse` column.
+  2. **FROM Vermogensklassen:** The count is done on the table that stores the capacity classes.
+  3. **AS aantal_vermogensklassen:** This renames the result column for clarity.
+
+*Purpose:*  
+To determine how many different capacity classes exist in your model.
+
+### Counting NIS Codes  
+```sql
+SELECT COUNT(DISTINCT NIS_Code) AS aantal_NIS_Codes
+FROM NIS_Codes;
+```
+- **Step-by-step:**
+  1. **COUNT(DISTINCT NIS_Code):** Counts only unique municipality identifiers.
+  2. **FROM NIS_Codes:** The count is based on the table with official municipality codes.
+  3. **AS aantal_NIS_Codes:** The result is labeled for clear interpretation.
+
+*Purpose:*  
+To see how many municipalities are represented in the data.
+
+---
+
+## 3. Exploring Time-Related Data
+
+### A. Listing All Periods  
+```sql
+SELECT Jaar, Maand 
+FROM periodes
+ORDER BY 1,2;
+```
+- **Step-by-step:**
+  1. **SELECT Jaar, Maand:** Retrieves the year and month from the `periodes` table.
+  2. **ORDER BY 1,2:** Orders the results first by the first column (Jaar) and then by the second column (Maand).
+
+*Why it works:*  
+It provides an ordered list of all periods, helping you see which periods are covered in your dataset.
+
+### B. Inspecting Periods in the Zonnepanelen Table  
+```sql
+SELECT *
+FROM zonnepanelen
+ORDER BY Periode;
+```
+- **Step-by-step:**
+  1. **SELECT *:** Retrieves all columns from the `zonnepanelen` table.
+  2. **ORDER BY Periode:** Sorts the rows by the `Periode` column.
+
+*Why it works:*  
+It helps you understand which period IDs are present in the installation data.
+
+### C. Finding the Earliest Observation  
+```sql
+SELECT ObservatieID, PeriodeID, Jaar, Maand
+FROM zonnepanelen z
+INNER JOIN periodes p
+ON z.Periode = p.PeriodeID
+ORDER BY 3,4;
+```
+- **Step-by-step:**
+  1. **FROM zonnepanelen z INNER JOIN periodes p ON z.Periode = p.PeriodeID:**  
+     Joins the `zonnepanelen` and `periodes` tables so you can match each installation to its calendar period.
+  2. **SELECT ObservatieID, PeriodeID, Jaar, Maand:** Selects the installation identifier along with period details.
+  3. **ORDER BY 3,4:** Orders the results by the third column (`Jaar`) and then the fourth column (`Maand`), ensuring the earliest (oldest) period comes first.
+
+*Why it works:*  
+It lets you verify that the earliest period is correctly recorded and see its associated year and month.
+
+### D. Finding the Latest Observation  
+```sql
+SELECT ObservatieID, PeriodeID, Jaar, Maand
+FROM zonnepanelen z
+INNER JOIN periodes p
+ON z.Periode = p.PeriodeID
+ORDER BY 3 DESC, 4 DESC;
+```
+- **Step-by-step:**
+  1. **Join:** Same as before—the join ensures you have period details.
+  2. **ORDER BY 3 DESC, 4 DESC:** Orders the results in descending order by `Jaar` and `Maand` so the latest observation appears at the top.
+
+*Why it works:*  
+This query quickly shows you the most recent period in which an installation was recorded.
+
+---
+
+## 4. Answering Research Questions
+
+### A. Period with the Most Installations  
+```sql
+SELECT Jaar, Maand, Aantal
+FROM zonnepanelen z
+INNER JOIN periodes p
+ON z.Periode = p.PeriodeID
+ORDER BY Aantal DESC
+LIMIT 1;
+```
+- **Step-by-step:**
+  1. **Join the Tables:** Combines `zonnepanelen` and `periodes` so that each installation record is linked to a specific calendar period.
+  2. **SELECT Jaar, Maand, Aantal:** Retrieves the year, month, and number of installations (`Aantal`).
+  3. **ORDER BY Aantal DESC:** Sorts the rows in descending order based on the number of installations.
+  4. **LIMIT 1:** Returns only the top row (the period with the highest number of installations).
+
+*Why it works:*  
+It directly answers which period (combination of year and month) had the global peak in installations.
+
+### B. Top Five Municipalities by Installations  
+```sql
+SELECT z.NIS_Code, Gemeente, Aantal
+FROM zonnepanelen z
+INNER JOIN NIS_Codes n
+ON z.NIS_Code = n.NIS_Code
+ORDER BY Aantal DESC
+LIMIT 5;
+```
+- **Step-by-step:**
+  1. **Join:** The `zonnepanelen` table is joined with `NIS_Codes` on `NIS_Code`, linking installation counts to municipality names (`Gemeente`).
+  2. **SELECT z.NIS_Code, Gemeente, Aantal:** Retrieves the municipality code, name, and number of installations.
+  3. **ORDER BY Aantal DESC:** Sorts the municipalities by the number of installations in descending order.
+  4. **LIMIT 5:** Returns only the top five municipalities.
+
+*Why it works:*  
+It ranks municipalities based on installation counts and shows only the top five, which is exactly what is asked.
+
+### C. The Most Installed Vermogensklasse and Its Classification  
+```sql
+SELECT v.Vermogensklasse,
+       Classificatie,
+       SUM(Aantal) AS installaties_per_klasse
+FROM zonnepanelen z
+INNER JOIN Vermogensklassen v
+ON z.Vermogensklasse = v.Vermogensklasse
+GROUP BY Vermogensklasse
+ORDER BY 3 DESC
+LIMIT 1;
+```
+- **Step-by-step:**
+  1. **Join:** Matches the `zonnepanelen` table with `Vermogensklassen` so you can access the classification information.
+  2. **SUM(Aantal):** Sums the number of installations for each capacity class.
+  3. **GROUP BY Vermogensklasse:** Groups the results by capacity class so the SUM is computed per group.
+  4. **ORDER BY 3 DESC:** Orders the groups by the third column (the summed installations) in descending order.
+  5. **LIMIT 1:** Retrieves only the capacity class with the highest number of installations.
+
+*Why it works:*  
+It aggregates installation data by capacity class and then selects the class with the maximum total installations along with its classification description.
+
+### D. Extreme High-Power Installations in Limburg, 2021  
+```sql
+SELECT Jaar, Provincie, Classificatie, SUM(Aantal) AS aantal_installaties
+FROM zonnepanelen z
+LEFT JOIN NIS_Codes n ON z.NIS_Code = n.NIS_Code
+LEFT JOIN periodes p ON z.Periode = p.PeriodeID
+LEFT JOIN Vermogensklassen v ON z.Vermogensklasse = v.Vermogensklasse
+WHERE Jaar = 2021
+  AND Provincie = 'Limburg'
+GROUP BY 1, 2, 3
+HAVING Classificatie = 'Extreem hoog';
+```
+- **Step-by-step:**
+  1. **Multiple LEFT JOINs:**  
+     - Joins `zonnepanelen` with `NIS_Codes` to get municipality and province data.  
+     - Joins with `periodes` to access the year.  
+     - Joins with `Vermogensklassen` to get the classification (e.g., ‘Extreem hoog’).
+  2. **WHERE Clause:** Filters the data for installations in the year 2021 and only for the province of Limburg.
+  3. **GROUP BY 1, 2, 3:** Groups the data by Jaar, Provincie, and Classificatie.
+  4. **SUM(Aantal):** Sums the installations within each group.
+  5. **HAVING Classificatie = 'Extreem hoog':** After grouping, filters the groups to include only those where the classification is 'Extreem hoog'.
+
+*Why it works:*  
+This query narrows down the dataset to 2021 in Limburg and then selects only the group corresponding to installations with an "extremely high" capacity, finally summing up their counts.
+
+### E. Analyzing a Seasonal Effect  
+1. **Top 3 Months by Installations (Globally):**  
+   ```sql
+   SELECT Maand, SUM(Aantal) AS aantal_installaties_per_maand
+   FROM zonnepanelen z
+   LEFT JOIN periodes p ON z.Periode = p.PeriodeID
+   GROUP BY 1
+   ORDER BY 2 DESC
+   LIMIT 3;
+   ```
+   - **Steps:**
+     1. **Join:** Combines `zonnepanelen` with `periodes` so that you can use the month (`Maand`) in your grouping.
+     2. **SUM(Aantal):** Calculates the total installations per month.
+     3. **GROUP BY Maand (column 1):** Groups rows by month.
+     4. **ORDER BY 2 DESC:** Sorts by the summed installations (the second column) in descending order.
+     5. **LIMIT 3:** Returns the top three months.
+   
+   *Purpose:*  
+   To see if there is a seasonal trend (e.g., winter months might show higher numbers).
+
+2. **Showing All Months for Detailed Comparison:**  
+   ```sql
+   SELECT Maand, SUM(Aantal) AS aantal_installaties_per_maand
+   FROM zonnepanelen z
+   LEFT JOIN periodes p ON z.Periode = p.PeriodeID
+   GROUP BY 1
+   ORDER BY 2 DESC;
+   ```
+   - **Difference:**  
+     This query is similar to the previous one but without the LIMIT clause, so you can observe the pattern for every month.
+
+*Why they work:*  
+They reveal variations in installations across the months, which can indicate a seasonal effect.
+
+---
+
+## 5. Calculating Average Installed Capacity per Vermogensklasse
+
+### A. Direct Calculation  
+```sql
+SELECT v.Vermogensklasse,
+       SUM(z.Vermogen_MW * 1000) / SUM(z.Aantal) AS avg_geinstalleerde_kw_per_klasse 
+FROM zonnepanelen z
+INNER JOIN Vermogensklassen v
+ON z.Vermogensklasse = v.Vermogensklasse
+GROUP BY v.Vermogensklasse;
+```
+- **Step-by-step:**
+  1. **Conversion:**  
+     - `z.Vermogen_MW * 1000` converts capacity from megawatts (MW) to kilowatts (kW).
+  2. **Aggregation:**  
+     - `SUM(z.Vermogen_MW * 1000)` computes the total installed capacity (in kW) for each capacity class.
+     - `SUM(z.Aantal)` sums the number of installations within each class.
+  3. **Division:**  
+     - Dividing the total capacity by the total installations gives the average installed capacity per installation.
+  4. **JOIN and GROUP BY:**  
+     - The INNER JOIN ensures that only matching records (where the capacity class is defined) are used.
+     - GROUP BY `v.Vermogensklasse` aggregates the data by capacity class.
+
+*Why it works:*  
+It directly answers the question by calculating the average installed capacity (in kW) per capacity class.
+
+### B. Alternative Scenario (Test Calculation)
+
+Sometimes the data granularity does not perfectly match your research question. Here you try an alternative approach to estimate the average number of panels installed per installation. The process involves two additional steps:
+
+#### 1. Adding and Updating a Column for Average Capacity per Panel  
+```sql
+ALTER TABLE zonnepanelen
+ADD COLUMN avg_kW_per_klasse INT NOT NULL;
+
+UPDATE zonnepanelen
+SET avg_kW_per_klasse = CASE
+    WHEN Vermogensklasse = 'A' THEN  5
+    WHEN Vermogensklasse = 'B' THEN 25
+    WHEN Vermogensklasse = 'C' THEN 145
+    WHEN Vermogensklasse = 'D' THEN 500
+    ELSE 1000
+END;
+```
+- **Steps:**
+  1. **ALTER TABLE:**  
+     Adds a new column `avg_kW_per_klasse` to store the predetermined average capacity value per capacity class.
+  2. **UPDATE with CASE:**  
+     Sets the value of `avg_kW_per_klasse` based on the capacity class using a CASE statement.
+
+*Why it works:*  
+It standardizes the average capacity value for each class (for example, class A installations are assumed to average 5 kW).
+
+#### 2. Calculating the Average Number of Panels  
+```sql
+ALTER TABLE zonnepanelen
+ADD COLUMN avg_aantal_panelen INT NOT NULL;
+
+UPDATE zonnepanelen
+SET avg_aantal_panelen = (Vermogen_MW * 1000) / avg_kW_per_klasse;
+```
+- **Steps:**
+  1. **Add a Column:**  
+     The `avg_aantal_panelen` column is added to store the estimated number of panels per installation.
+  2. **Calculation:**  
+     The formula divides the total capacity (in kW) by the average capacity per panel. This gives an approximation of how many panels were installed per installation.
+
+*Why it works:*  
+It leverages the known average capacities to estimate the number of panels, which then can be used to re-calculate an average installed capacity per class on a per-panel basis.
+
+#### 3. Final Re-calculation Using the New Column  
+```sql
+SELECT v.Vermogensklasse,
+       v.Vermogen, -- included to view the range (low/high)
+       SUM(z.Vermogen_MW * 1000) / SUM(z.avg_aantal_panelen) AS avg_geinstalleerde_kw_per_klasse 
+FROM zonnepanelen z
+INNER JOIN Vermogensklassen v
+ON z.Vermogensklasse = v.Vermogensklasse
+GROUP BY v.Vermogensklasse;
+```
+- **Step-by-step:**
+  1. **Join:**  
+     Joins the updated `zonnepanelen` table with `Vermogensklassen`.
+  2. **Recalculation:**  
+     Sums the total installed capacity (in kW) and divides by the total estimated number of panels (`avg_aantal_panelen`), then groups by capacity class.
+  3. **Output:**  
+     This provides a revised average installed capacity per class, factoring in the estimated panel count.
+
+*Why it works:*  
+It provides an alternative perspective, though—as noted in your comments—the granularity mismatch makes it difficult to fully answer the original question with this method.
+
+---
+
+## 6. Analysis of Installations per Inhabitant
+
+### A. Comparing Municipalities with Installations  
+```sql
+SELECT COUNT(DISTINCT z.NIS_Code) AS nis_codes_geinstalleerd,
+       COUNT(DISTINCT n.NIS_Code) AS totaal_aantal_nis_codes
+FROM zonnepanelen z
+RIGHT JOIN NIS_Codes n
+ON z.NIS_Code = n.NIS_Code;
+```
+- **Step-by-step:**
+  1. **RIGHT JOIN:**  
+     Ensures that all municipalities from the `NIS_Codes` table are included—even if there is no matching installation in `zonnepanelen`.
+  2. **COUNT(DISTINCT):**  
+     Counts how many unique municipality codes have installations versus the total number of municipalities.
+
+*Why it works:*  
+It reveals the coverage of installations across municipalities.
+
+### B. Which Province Has the Most Municipalities Without Installations  
+```sql
+SELECT n.Provincie, 
+       COUNT(DISTINCT n.Gemeente) AS aantal_gemeentes_zonder_installaties
+FROM zonnepanelen z
+RIGHT JOIN NIS_Codes n ON z.NIS_Code = n.NIS_Code
+WHERE z.NIS_Code IS NULL
+GROUP BY 1
+ORDER BY 2 DESC;
+```
+- **Step-by-step:**
+  1. **RIGHT JOIN:**  
+     Again, includes all municipalities from `NIS_Codes`.
+  2. **WHERE z.NIS_Code IS NULL:**  
+     Filters to only those municipalities that have no matching installation record.
+  3. **GROUP BY Provincie:**  
+     Groups the results by province.
+  4. **COUNT(DISTINCT n.Gemeente):**  
+     Counts the number of unique municipalities without installations per province.
+  5. **ORDER BY 2 DESC:**  
+     Orders the results so that the province with the highest number of such municipalities comes first.
+
+*Why it works:*  
+It helps identify which province is lagging in installations, which could be useful for further policy or marketing analysis.
+
+### C. Top 10 Municipalities by Installations per Inhabitant  
+```sql
+SELECT Gemeente,
+       SUM(Aantal) / SUM(Inwoners) AS installaties_per_inwoner
+FROM zonnepanelen z
+RIGHT JOIN NIS_Codes n
+ON z.NIS_Code = n.NIS_Code
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 10;
+```
+- **Step-by-step:**
+  1. **RIGHT JOIN:**  
+     Ensures every municipality is included.
+  2. **SUM(Aantal) / SUM(Inwoners):**  
+     Calculates the ratio of total installations to total inhabitants for each municipality.
+  3. **GROUP BY Gemeente:**  
+     Groups the data by municipality.
+  4. **ORDER BY installaties_per_inwoner DESC:**  
+     Orders the municipalities by the installations-per-inhabitant ratio in descending order.
+  5. **LIMIT 10:**  
+     Returns the top 10 municipalities.
+
+*Why it works:*  
+It directly answers the question of which municipalities have the highest rate of solar panel installations relative to their population.
+
+---
+
+## Summary
+
+- **Data Exploration:**  
+  You started by understanding your data—identifying primary keys, counting unique categories, and inspecting period data.
+
+- **Joining Tables:**  
+  Throughout the script, you used INNER and RIGHT JOINs to combine data from different tables. The joins are based on matching keys like `NIS_Code`, `PeriodeID`, and `Vermogensklasse` to merge the relevant attributes (e.g., municipality name, period details, capacity classification).
+
+- **Aggregation and Filtering:**  
+  You made extensive use of aggregate functions (SUM, COUNT, etc.), GROUP BY clauses, and filtering (WHERE, HAVING) to extract meaningful summaries that answer specific questions about installation counts, periods, capacity classes, and geographic distribution.
+
+- **Calculated Fields:**  
+  For the capacity and panel analyses, you added new columns to compute standardized values (such as `avg_kW_per_klasse` and `avg_aantal_panelen`) to try and reconcile data granularity issues.
+
+- **Ordering and Limiting:**  
+  You applied ORDER BY and LIMIT clauses to rank and narrow down results (e.g., top periods or municipalities) to directly answer the research questions.
+
