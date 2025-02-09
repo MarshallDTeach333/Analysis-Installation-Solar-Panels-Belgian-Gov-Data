@@ -65,11 +65,12 @@ LIMIT 1;
 
 -- Wat zijn de top vijf gemeenten met de meeste geïnstalleerde zonnepanelen?
 	-- we linken nis-codes met zonnepanelen om aantal installates te kunnen linken aan de overeenkomende gemeente
-SELECT z.NIS_Code, Gemeente, Aantal
+SELECT z.NIS_Code, Gemeente, SUM(Aantal) AS installaties_per_gemeente
 FROM zonnepanelen z
 INNER JOIN NIS_Codes n
 ON z.NIS_Code = n.NIS_Code
-ORDER BY Aantal DESC
+GROUP BY 1,2
+ORDER BY 3 DESC
 LIMIT 5; 
 -- ------------------------------------------------------------------------------------
 
@@ -134,11 +135,11 @@ ORDER BY 2 DESC;  -- we kunnen zo afleiden dat 1.(maand 6 uitspringt t.o.v. maan
 -- Wat is het gemiddeld geïnstalleerd vermogen per vermogensklasse? 
 	-- we zoeken naar de (totaal geinstalleerde vermogen in kW) / (totaal aantal installaties) per Vermogensklasse
 SELECT v.Vermogensklasse,
-	   SUM(z.Vermogen_MW * 1000) / SUM(z.Aantal) AS avg_geinstalleerde_kw_per_klasse 
+	   AVG(z.Vermogen_MW * 1000) AS avg_geinstalleerde_kw_per_klasse 
 FROM zonnepanelen z
 INNER JOIN Vermogensklassen v
 ON z.Vermogensklasse = v.Vermogensklasse
-GROUP BY v.Vermogensklasse;
+GROUP BY 1;
 
 
 -- Voor welke vermogensklassen is dit eerder aan de hoge kant 
@@ -167,12 +168,12 @@ ADD COLUMN avg_kW_per_klasse INT NOT NULL;
 
 UPDATE zonnepanelen
 SET avg_kW_per_klasse = CASE
-							WHEN Vermogensklasse = 'A' THEN  5
+			    WHEN Vermogensklasse = 'A' THEN  5
                             WHEN Vermogensklasse = 'B' THEN 25
                             WHEN Vermogensklasse = 'C' THEN 145
                             WHEN Vermogensklasse = 'D' THEN 500
                             ELSE 1000
-						END;
+			END;
 
 -- 2. avg_aantal_panelen   
 ALTER TABLE zonnepanelen
