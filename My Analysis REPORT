@@ -1,0 +1,85 @@
+
+## 1. Introduction
+
+This report summarizes the analysis performed on the solar panel installation dataset. The main objectives were to understand the structure of the data, verify key relationships, and answer several research questions. In doing so, two primary issues were identified: inconsistencies in unit definitions and mismatches in data granularity. This report outlines these issues and provides recommendations to address them.
+
+---
+
+## 2. Data Overview
+
+### Tables and Key Identifiers
+
+- **zonnepanelen:**  
+  - **Primary Key Candidate:** `ObservatieID`  
+  - **Key Fields:**  
+    - `Aantal` – Number of installations  
+    - `Vermogen_MW` – Installed capacity (recorded in MW, though there is some ambiguity regarding whether this represents capacity or energy)  
+    - `Periode` – Links to the `periodes` table  
+    - `Vermogensklasse` – Links to the `Vermogensklassen` table
+
+- **NIS_Codes:**  
+  - **Primary Key Candidate:** `NIS_Code`  
+  - **Key Fields:**  
+    - `Gemeente` – Municipality name  
+    - `Provincie` – Province  
+    - `Inwoners` – Population
+
+- **periodes:**  
+  - **Primary Key Candidate:** `PeriodeID`  
+  - **Key Fields:**  
+    - `Jaar` – Year  
+    - `Maand` – Month
+
+- **Vermogensklassen:**  
+  - **Primary Key Candidate:** `Vermogensklasse`  
+  - **Key Fields:**  
+    - `Classificatie` – Classification description (for example, "Extreem hoog")  
+    - Additional details that describe the capacity class
+
+---
+
+## 3. Issues Identified
+
+### 3.1 Unit Inconsistencies
+
+- **Ambiguity Between Capacity and Energy:**  
+  The `Vermogen_MW` column in the zonnepanelen table is intended to represent installed capacity. However, documentation sometimes refers to “het totaal geïnstalleerde vermogen in megawattuur,” which is typically an energy unit (MWh).  
+  - **Impact:**  
+    This inconsistency can lead to incorrect unit conversions (e.g., multiplying by 1000 to obtain kW) and misinterpretation of the capacity values during analysis.
+
+### 3.2 Granularity Mismatch
+
+- **Installation-Level vs. Panel-Level Data:**  
+  The zonnepanelen table records data on a per-installation basis, whereas the Vermogensklassen table appears to describe characteristics on a per-panel basis.  
+  - **Impact:**  
+    When computing averages—such as the average installed capacity per installation—or estimating the number of panels per installation, this difference in granularity can lead to misleading results or require additional assumptions that are hard to validate.
+
+---
+
+## 4. Recommendations
+
+### 4.1 Clarify and Standardize Units
+
+- **Review Column Definitions:**  
+  Audit the data documentation to confirm whether `Vermogen_MW` truly represents installed capacity (in MW) or if it should be interpreted as energy production (in MWh).
+- **Rename Columns if Necessary:**  
+  If the data indeed represents capacity, consider renaming the column to something more descriptive (for example, `Vermogen_MWp` for megawatt-peak) to avoid confusion with energy measures.
+
+### 4.2 Address Granularity Mismatches
+
+- **Define Data Granularity Clearly:**  
+  Document whether the data in the zonnepanelen table is at the installation level or reflects individual panel data.
+- **Separate Metrics if Necessary:**  
+  If both installation-level and panel-level analyses are required, consider restructuring the analysis (or the data model) to clearly separate these two sets of metrics. This may involve creating additional fields or tables to capture panel-specific details independently from installation aggregates.
+
+---
+
+## 5. Conclusion
+
+The analysis of the solar panel dataset revealed two main issues:  
+1. **Unit inconsistencies**—where the intended meaning of `Vermogen_MW` is ambiguous, risking errors in unit conversion and analysis.  
+2. **Granularity mismatches**—between installation-level data and panel-level capacity classifications, which complicates the estimation of per-installation or per-panel metrics.
+
+By clarifying unit definitions and documenting data granularity explicitly, the accuracy and reliability of future analyses can be improved. Implementing these recommendations will help ensure that the dataset supports sound and meaningful insights into solar panel installations.
+
+---
